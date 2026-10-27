@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Классическое Рэндзю</title>
+  
+  <!-- VK Bridge SDK -->
+  <script src="https://unpkg.com/@vkontakte/vk-bridge/dist/index.umd.js"></script>
+
+  <style>
+    :root {
+      --vk-blue: #0077FF;
+      --vk-blue-hover: #0066DD;
+      --bg-color: #EBEDF0;
+      --panel-bg: #FFFFFF;
+      --board-color: #E2B06F;
+      --board-line: #5C3D11;
+      --text-main: #000000;
+      --text-sub: #818C99;
+      --accent-red: #E64646;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Roboto", "Segoe UI", "Helvetica Neue", sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #app-container {
+      width: 100%;
+      max-width: 480px;
+      height: 100vh;
+      max-height: 900px;
+      background-color: var(--panel-bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    }
+
+    /* === ЗАСТАВКА (SPLASH SCREEN) === */
+    #splash-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, #1A1C29 0%, #2E1F3B 60%, #4A2840 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      padding: 40px 20px;
+      transition: opacity 0.6s ease, visibility 0.6s;
+    }
+
+    #splash-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .splash-art {
+      width: 100%;
+      max-width: 320px;
+      height: 240px;
+      margin-top: 20px;
+      position: relative;
+    }
+
+    .sakura-petal {
+      position: absolute;
+      background: #FFB7C5;
+      border-radius: 15px 0 15px 0;
+      opacity: 0.8;
+      animation: fall 6s linear infinite;
+    }
+
+    @keyframes fall {
+      0% { transform: translate(0, -10px) rotate(0deg); opacity: 0.9; }
+      100% { transform: translate(80px, 250px) rotate(360deg); opacity: 0; }
+    }
+
+    .splash-title-container {
+      text-align: center;
+      color: #FFFFFF;
+      z-index: 2;
+    }
+
+    .splash-title {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      background: linear-gradient(45deg, #FFE29F, #FFAE99);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .splash-subtitle {
+      font-size: 14px;
+      color: #D1C4E9;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .loader-container {
+      width: 100%;
+      max-width: 280px;
+      text-align: center;
+      margin-bottom: 30px;
+      z-index: 2;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #FF7B9C, #FFC777);
+      border-radius: 4px;
+      transition: width 0.3s linear;
+    }
+
+    .quote-text {
+      font-size: 13px;
+      color: #E0E0E0;
+      font-style: italic;
+      min-height: 36px;
+    }
+
+    /* === ИГРОВОЙ ИНТЕРФЕЙС === */
+    header {
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #E7E8EC;
+      background: #FFFFFF;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #2C2D2E;
+    }
+
+    .status-panel {
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #F7F8FA;
+    }
+
+    .player-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 12px;
+      border-radius: 12px;
+      background: #FFFFFF;
+      border: 1px solid #E7E8EC;
+      transition: all 0.3s;
+    }
+
+    .player-card.active {
+      border-color: var(--vk-blue);
+      box-shadow: 0 0 8px rgba(0, 119, 255, 0.2);
+    }
+
+    .stone-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), inset 0 -2px 4px rgba(0,0,0,0.4);
+    }
+    .stone-icon.black { background: radial-gradient(circle at 35% 35%, #444, #000); }
+    .stone-icon.white { background: radial-gradient(circle at 35% 35%, #fff, #ccc); border: 1px solid #bbb; }
+
+    .player-name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .board-wrapper {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 10px;
+      background: #F4F5F7;
+    }
+
+    #board-container {
+      width: 100%;
+      aspect-ratio: 1;
+      max-width: 440px;
+      background-color: var(--board-color);
+      border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+      position: relative;
+      touch-action: manipulation;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 8px;
+    }
+
+    .controls-panel {
+      padding: 14px 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      background: #FFFFFF;
+      border-top: 1px solid #E7E8EC;
+    }
+
+    .btn {
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary { background: var(--vk-blue); color: #FFF; }
+    .btn-primary:hover { background: var(--vk-blue-hover); }
+    
+    .btn-secondary { background: #F0F2F5; color: #2C2D2E; }
+    .btn-secondary:hover { background: #E4E7ED; }
+
+    .btn-full { grid-column: span 2; }
+
+    .foul-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      grid-column: span 2;
+      padding: 8px 12px;
+      background: #F7F8FA;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-sub);
+    }
+
+    /* MODAL */
+    .modal {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 50;
+    }
+    .modal.show { opacity: 1; pointer-events: auto; }
+
+    .modal-content {
+      background: #FFF;
+      border-radius: 16px;
+      padding: 24px;
+      width: 85%;
+      max-width: 340px;
+      text-align: center;
+    }
+    .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .modal-desc { font-size: 14px; color: var(--text-sub); margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+  <div id-="app-container" id="app-container">
+    
+    <!-- ЗАСТАВКА (SPLASH SCREEN) -->
+    <div id="splash-screen">
+      <div class="splash-title-container">
+        <div class="splash-title">РЭНДЗЮ</div>
+        <div class="splash-subtitle">Восточная Стратегия</div>
+      </div>
+
+      <div class="splash-art">
+        <svg viewBox="0 0 320 240" width="100%" height="100%">
+          <defs>
+            <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#2A1B3D"/>
+              <stop offset="100%" stop-color="#442644"/>
+            </linearGradient>
+            <linearGradient id="fujiGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#FFFFFF"/>
+              <stop offset="25%" stop-color="#E2D4F0"/>
+              <stop offset="60%" stop-color="#2D2342"/>
+              <stop offset="100%" stop-color="#191326"/>
+            </linearGradient>
+            <radialGradient id="sunGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#FF5252"/>
+              <stop offset="100%" stop-color="#FF7A00"/>
+            </radialGradient>
+          </defs>
+
+          <!-- Фон -->
+          <rect width="320" height="240" fill="url(#skyGrad)" rx="12"/>
+
+          <!-- Солнце -->
+          <circle cx="160" cy="110" r="50" fill="url(#sunGrad)" opacity="0.9"/>
+
+          <!-- Фудзияма -->
+          <polygon points="40,220 160,70 280,220" fill="url(#fujiGrad)"/>
+          
+          <!-- Силуэт Пагоды -->
+          <g fill="#11091C">
+            <rect x="230" y="150" width="40" height="70"/>
+            <!-- Крыши -->
+            <path d="M 220,195 Q 250,185 280,195 L 275,188 Q 250,180 225,188 Z"/>
+            <path d="M 223,175 Q 250,165 277,175 L 272,168 Q 250,160 228,168 Z"/>
+            <path d="M 226,155 Q 250,145 274,155 L 269,148 Q 250,140 231,148 Z"/>
+            <!-- Шпиль -->
+            <line x1="250" y1="140" x2="250" y2="125" stroke="#11091C" stroke-width="2"/>
+          </g>
+
+          <!-- Горы на переднем плане -->
+          <path d="M 0,220 Q 80,180 170,220 Z" fill="#181124"/>
+          <path d="M 130,220 Q 220,170 320,220 Z" fill="#0F0917"/>
+        </svg>
+
+        <!-- Анимированные лепестки сакуры -->
+        <div class="sakura-petal" style="left: 20%; width: 8px; height: 12px; animation-delay: 0s;"></div>
+        <div class="sakura-petal" style="left: 45%; width: 10px; height: 14px; animation-delay: 2s;"></div>
+        <div class="sakura-petal" style="left: 70%; width: 7px; height: 10px; animation-delay: 4s;"></div>
+      </div>
+
+      <div class="loader-container">
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <div class="quote-text" id="quote-display">Подготовка бамбуковой доски...</div>
+      </div>
+    </div>
+
+    <!-- HEADER -->
+    <header>
+      <div class="header-title">Рэндзю с ИИ</div>
+      <div style="font-size: 12px; color: var(--vk-blue); font-weight: 600;">Мастер-Мастер</div>
+    </header>
+
+    <!-- ИГРОКИ -->
+    <div class="status-panel">
+      <div class="player-card active" id="card-black">
+        <div class="stone-icon black"></div>
+        <div>
+          <div class="player-name">Вы (Чёрные)</div>
+          <div style="font-size: 11px; color: var(--text-sub);">Первый ход</div>
+        </div>
+      </div>
+      
+      <div class="player-card" id="card-white">
+        <div class="stone-icon white"></div>
+        <div>
+          <div class="player-name">Мастер ИИ</div>
+          <div style="font-size: 11px; color: var(--text-sub);">Белые</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ДОСКА -->
+    <div class="board-wrapper">
+      <div id="board-container">
+        <canvas id="renjuCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- КНОПКИ -->
+    <div class="controls-panel">
+      <div class="foul-toggle">
+        <span>Подсветка фолов (для Чёрных):</span>
+        <input type="checkbox" id="foul-checkbox" checked style="accent-color: var(--vk-blue); cursor: pointer;" />
+      </div>
+
+      <button class="btn btn-secondary" id="undo-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+        Отмена
+      </button>
+      
+      <button class="btn btn-primary" id="restart-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6"/><path d="M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Новая игра
+      </button>
+
+      <button class="btn btn-secondary btn-full" id="share-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.07 2H8.93C3.33 2 2 3.33 2 8.93v6.14C2 20.67 3.33 22 8.93 22h6.14c5.6 0 6.93-1.33 6.93-6.93V8.93C22 3.33 20.67 2 15.07 2zM17 12.5h-3v3c0 .41-.34.75-.75.75s-.75-.34-.75-.75v-3h-3c-.41 0-.75-.34-.75-.75s.34-.75.75-.75h3v-3c0-.41.34-.75.75-.75s.75.34.75.75v3h3c.41 0 .75.34.75.75s-.34.75-.75.75z"/></svg>
+        Поделиться ВКонтакте
+      </button>
+    </div>
+
+    <!-- ИТОГОВЫЙ МОДАЛ -->
+    <div class="modal" id="game-modal">
+      <div class="modal-content">
+        <div class="modal-title" id="modal-title">Победа!</div>
+        <div class="modal-desc" id="modal-desc">Вы собрали 5 в ряд!</div>
+        <button class="btn btn-primary btn-full" onclick="closeModal(); initGame();">Играть снова</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ==========================================
+       1. VK BRIDGE И ИНИЦИАЛИЗАЦИЯ
+       ========================================== */
+    let vkAppId = 0;
+    try {
+      if (window.vkBridge) {
+        vkBridge.send('VKWebAppInit');
+      }
+    } catch(e) { console.log('VK Bridge init fallback'); }
+
+    /* ==========================================
+       2. АНИМАЦИЯ ЗАСТАВКИ
+       ========================================== */
+    const quotes = [
+      "«Путь в тысячу ли начинается с первого камня»",
+      "«Чёрные стремительны, Белые выжидают»",
+      "«Избегайте фолов 3х3 и 4х4 — истинный мастер видит ограничения»",
+      "«Каждый ход на доске — отражение разума»"
+    ];
+
+    let progress = 0;
+    const fillEl = document.getElementById('progress-fill');
+    const quoteEl = document.getElementById('quote-display');
+    const splashEl = document.getElementById('splash-screen');
+
+    let quoteIdx = 0;
+    const quoteInterval = setInterval(() => {
+      quoteIdx = (quoteIdx + 1) % quotes.length;
+      quoteEl.textContent = quotes[quoteIdx];
+    }, 1500);
+
+    const loadInterval = setInterval(() => {
+      progress += Math.floor(Math.random() * 15) + 10;
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(loadInterval);
+        clearInterval(quoteInterval);
+        setTimeout(() => {
+          splashEl.classList.add('hidden');
+        }, 400);
+      }
+      fillEl.style.width = progress + '%';
+    }, 150);
+
+    /* ==========================================
+       3. ЗВУКОВОЙ ДВИЖОК (WEB AUDIO API)
+       ========================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+      playStoneSound() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.08);
+      }
+      playFoulSound() {
+        this.init();
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+        osc.frequency.setValueAtTime(100, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+    }
+    const sounds = new SoundEngine();
+
+    /* ==========================================
+       4. ДВИЖОК РЭНДЗЮ & ФОЛЫ
+       ========================================== */
+    const BOARD_SIZE = 15;
+    const EMPTY = 0;
+    const BLACK = 1;
+    const WHITE = 2;
+
+    let board = Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(EMPTY));
+    let history = [];
+    let turn = BLACK;
+    let gameOver = false;
+    let foulHighlights = [];
+
+    const canvas = document.getElementById('renjuCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const container = document.getElementById('board-container');
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      renderBoard();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function initGame() {
+      board = Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(EMPTY));
+      history = [];
+      turn = BLACK;
+      gameOver = false;
+      updateUI();
+      recalculateFouls();
+      renderBoard();
+    }
+
+    function isInside(r, c) {
+      return r >= 0 && r < BOARD_SIZE && c >= 0 && c < BOARD_SIZE;
+    }
+
+    // Подсчет линий и паттернов
+    function checkLine(r, c, dr, dc, color) {
+      let count = 1;
+      // В одну сторону
+      let nr = r + dr, nc = c + dc;
+      while (isInside(nr, nc) && board[nr][nc] === color) {
+        count++; nr += dr; nc += dc;
+      }
+      // В противоположную
+      nr = r - dr; nc = c - dc;
+      while (isInside(nr, nc) && board[nr][nc] === color) {
+        count++; nr -= dr; nc -= dc;
+      }
+      return count;
+    }
+
+    // Проверка на оверлайн (>5)
+    function hasOverline(r, c, color) {
+      const dirs = [[0,1], [1,0], [1,1], [1,-1]];
+      for (let [dr, dc] of dirs) {
+        if (checkLine(r, c, dr, dc, color) > 5) return true;
+      }
+      return false;
+    }
+
+    // Подсчет открытых и закрытых троек/четверок для фолов
+    function countThreats(r, c, color) {
+      const dirs = [[0,1], [1,0], [1,1], [1,-1]];
+      let openThrees = 0;
+      let fours = 0;
+
+      board[r][c] = color; // Временно выставляем
+
+      for (let [dr, dc] of dirs) {
+        let line = [];
+        for (let i = -4; i <= 4; i++) {
+          let nr = r + dr * i, nc = c + dc * i;
+          if (isInside(nr, nc)) {
+            line.push(board[nr][nc]);
+          } else {
+            line.push(-1); // Стена
+          }
+        }
+        
+        // Анализ строки в пределах 9 клеток
+        const str = line.map(v => v === color ? 'X' : (v === EMPTY ? '.' : 'O')).join('');
+
+        // Проверка 4-ок (любые открытые или полуоткрытые 4)
+        if (str.includes('.XXXX.') || str.includes('OXXXX.') || str.includes('.XXXXO') ||
+            str.includes('XXX.X') || str.includes('X.XXX') || str.includes('XX.XX')) {
+          fours++;
+        }
+
+        // Проверка открытых 3-ек
+        if (str.includes('.XXX.') || str.includes('.XX.X.') || str.includes('.X.XX.')) {
+          openThrees++;
+        }
+      }
+
+      board[r][c] = EMPTY; // Возвращаем назад
+      return { openThrees, fours };
+    }
+
+    // Главная проверка фола для Чёрных
+    function checkFoul(r, c) {
+      if (board[r][c] !== EMPTY) return null;
+
+      // Временно ставим черный камень
+      board[r][c] = BLACK;
+      
+      // Если ход создает ровно 5 в ряд - это ПОБЕДА (фол отменяется)
+      const dirs = [[0,1], [1,0], [1,1], [1,-1]];
+      let makesFive = false;
+      for (let [dr, dc] of dirs) {
+        if (checkLine(r, c, dr, dc, BLACK) === 5) {
+          makesFive = true;
+          break;
+        }
+      }
+
+      if (makesFive) {
+        board[r][c] = EMPTY;
+        return null;
+      }
+
+      // 1. Длинный ряд (>5)
+      if (hasOverline(r, c, BLACK)) {
+        board[r][c] = EMPTY;
+        return "Длинный ряд (>5)";
+      }
+
+      const { openThrees, fours } = countThreats(r, c, BLACK);
+
+      // 2. Двойная тройка (3х3)
+      if (openThrees >= 2) {
+        board[r][c] = EMPTY;
+        return "Фол 3х3";
+      }
+
+      // 3. Двойная четверка (4х4)
+      if (fours >= 2) {
+        board[r][c] = EMPTY;
+        return "Фол 4х4";
+      }
+
+      board[r][c] = EMPTY;
+      return null;
+    }
+
+    function recalculateFouls() {
+      foulHighlights = [];
+      if (!document.getElementById('foul-checkbox').checked) return;
+      if (turn !== BLACK || gameOver) return;
+
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (board[r][c] === EMPTY && checkFoul(r, c)) {
+            foulHighlights.push({ r, c });
+          }
+        }
+      }
+    }
+
+    function checkWin(r, c, color) {
+      const dirs = [[0,1], [1,0], [1,1], [1,-1]];
+      for (let [dr, dc] of dirs) {
+        const len = checkLine(r, c, dr, dc, color);
+        if (color === BLACK && len === 5) return true;
+        if (color === WHITE && len >= 5) return true; // У Белых нет оверлайна
+      }
+      return false;
+    }
+
+    /* ==========================================
+       5. ЕДИНЫЙ УМНЫЙ ИИ (THREAT-BASED AI ENGINE)
+       ========================================== */
+    function evaluatePosition(color) {
+      let score = 0;
+      const opp = color === BLACK ? WHITE : BLACK;
+
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (board[r][c] === color) {
+            score += 5;
+          } else if (board[r][c] === opp) {
+            score -= 5;
+          }
+        }
+      }
+      return score;
+    }
+
+    function aiMakeMove() {
+      if (gameOver) return;
+
+      let bestMove = null;
+      let highestScore = -Infinity;
+
+      // Получаем все возможные ходы возле уже существующих камней
+      let candidates = [];
+      const visited = Array(BOARD_SIZE).fill(0).map(() => Array(BOARD_SIZE).fill(false));
+
+      let hasStones = false;
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (board[r][c] !== EMPTY) {
+            hasStones = true;
+            for (let dr = -2; dr <= 2; dr++) {
+              for (let dc = -2; dc <= 2; dc++) {
+                let nr = r + dr, nc = c + dc;
+                if (isInside(nr, nc) && board[nr][nc] === EMPTY && !visited[nr][nc]) {
+                  visited[nr][nc] = true;
+                  candidates.push({ r: nr, c: nc });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Если доска пустая - ставим в центр
+      if (!hasStones) {
+        makeMove(7, 7);
+        return;
+      }
+
+      // --- ПРИОРИТЕТ 1: Мгновенный победный ход ИИ ---
+      for (let cand of candidates) {
+        board[cand.r][cand.c] = WHITE;
+        if (checkWin(cand.r, cand.c, WHITE)) {
+          board[cand.r][cand.c] = EMPTY;
+          makeMove(cand.r, cand.c);
+          return;
+        }
+        board[cand.r][cand.c] = EMPTY;
+      }
+
+      // --- ПРИОРИТЕТ 2: Блокировка победы Игрока (5 в ряд или фол) ---
+      for (let cand of candidates) {
+        if (!checkFoul(cand.r, cand.c)) { // Если игрок может туда ходить
+          board[cand.r][cand.c] = BLACK;
+          if (checkWin(cand.r, cand.c, BLACK)) {
+            board[cand.r][cand.c] = EMPTY;
+            makeMove(cand.r, cand.c); // Блокируем победу!
+            return;
+          }
+          board[cand.r][cand.c] = EMPTY;
+        }
+      }
+
+      // --- ПРИОРИТЕТ 3: Эвристическая оценка потенциала атаки и защиты ---
+      for (let cand of candidates) {
+        let score = 0;
+
+        // Оценка атаки ИИ (Белые)
+        board[cand.r][cand.c] = WHITE;
+        const aiThreats = countThreats(cand.r, cand.c, WHITE);
+        score += aiThreats.fours * 500 + aiThreats.openThrees * 150;
+        
+        // Оценка защиты от Игрока (Чёрные)
+        board[cand.r][cand.c] = BLACK;
+        const playerThreats = countThreats(cand.r, cand.c, BLACK);
+        score += playerThreats.fours * 400 + playerThreats.openThrees * 120;
+        
+        board[cand.r][cand.c] = EMPTY;
+
+        // Близость к центру
+        const centerDist = Math.abs(cand.r - 7) + Math.abs(cand.c - 7);
+        score -= centerDist * 2;
+
+        if (score > highestScore) {
+          highestScore = score;
+          bestMove = cand;
+        }
+      }
+
+      if (bestMove) {
+        makeMove(bestMove.r, bestMove.c);
+      } else if (candidates.length > 0) {
+        makeMove(candidates[0].r, candidates[0].c);
+      }
+    }
+
+    /* ==========================================
+       6. ЛОГИКА ИГРОВОГО ПРОЦЕССА
+       ========================================== */
+    function makeMove(r, c) {
+      if (board[r][c] !== EMPTY || gameOver) return;
+
+      // Проверка фола если ходят Чёрные
+      if (turn === BLACK) {
+        const foulReason = checkFoul(r, c);
+        if (foulReason) {
+          sounds.playFoulSound();
+          showModal("ФОЛ!", `Чёрные нарушили правила: ${foulReason}. Победа Белых!`);
+          gameOver = true;
+          return;
+        }
+      }
+
+      board[r][c] = turn;
+      history.push({ r, c, color: turn });
+      sounds.playStoneSound();
+
+      // Проверка на победу
+      if (checkWin(r, c, turn)) {
+        gameOver = true;
+        renderBoard();
+        const winnerName = turn === BLACK ? "Вы (Чёрные)" : "Мастер ИИ (Белые)";
+        setTimeout(() => {
+          showModal("Игра завершена!", `Победитель: ${winnerName}!`);
+        }, 100);
+        return;
+      }
+
+      // Ничья
+      if (history.length === BOARD_SIZE * BOARD_SIZE) {
+        gameOver = true;
+        showModal("Ничья!", "Доска заполнена.");
+        return;
+      }
+
+      // Смена хода
+      turn = turn === BLACK ? WHITE : BLACK;
+      updateUI();
+      recalculateFouls();
+      renderBoard();
+
+      // Ход ИИ
+      if (turn === WHITE && !gameOver) {
+        setTimeout(aiMakeMove, 250);
+      }
+    }
+
+    function undoMove() {
+      if (history.length === 0 || gameOver) return;
+      
+      // Отменяем 2 хода (ИИ и Игрока)
+      let popCount = turn === WHITE ? 1 : 2;
+      for (let i = 0; i < popCount; i++) {
+        if (history.length > 0) {
+          let last = history.pop();
+          board[last.r][last.c] = EMPTY;
+        }
+      }
+      turn = BLACK;
+      gameOver = false;
+      updateUI();
+      recalculateFouls();
+      renderBoard();
+    }
+
+    /* ==========================================
+       7. ОТРЕСОВКА canvas
+       ========================================== */
+    function renderBoard() {
+      const container = document.getElementById('board-container');
+      const width = container.clientWidth;
+      const cellSize = width / (BOARD_SIZE + 1);
+
+      ctx.clearRect(0, 0, width, width);
+
+      // 1. Сетка
+      ctx.strokeStyle = '#5C3D11';
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= BOARD_SIZE; i++) {
+        // Вертикальные
+        ctx.beginPath();
+        ctx.moveTo(i * cellSize, cellSize);
+        ctx.lineTo(i * cellSize, BOARD_SIZE * cellSize);
+        ctx.stroke();
+
+        // Горизонтальные
+        ctx.beginPath();
+        ctx.moveTo(cellSize, i * cellSize);
+        ctx.lineTo(BOARD_SIZE * cellSize, i * cellSize);
+        ctx.stroke();
+      }
+
+      // 2. Точки Хоси (Star Points)
+      const hoshiPoints = [[3,3], [3,11], [7,7], [11,3], [11,11]];
+      ctx.fillStyle = '#5C3D11';
+      for (let [hr, hc] of hoshiPoints) {
+        ctx.beginPath();
+        ctx.arc((hc + 1) * cellSize, (hr + 1) * cellSize, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 3. Камни
+      for (let r = 0; r < BOARD_SIZE; r++) {
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          const color = board[r][c];
+          if (color !== EMPTY) {
+            const cx = (c + 1) * cellSize;
+            const cy = (r + 1) * cellSize;
+            const radius = cellSize * 0.43;
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+
+            if (color === BLACK) {
+              const grad = ctx.createRadialGradient(cx - radius*0.3, cy - radius*0.3, radius*0.1, cx, cy, radius);
+              grad.addColorStop(0, '#555');
+              grad.addColorStop(1, '#000');
+              ctx.fillStyle = grad;
+            } else {
+              const grad = ctx.createRadialGradient(cx - radius*0.3, cy - radius*0.3, radius*0.1, cx, cy, radius);
+              grad.addColorStop(0, '#FFFFFF');
+              grad.addColorStop(1, '#D0D0D0');
+              ctx.fillStyle = grad;
+            }
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.fill();
+            ctx.shadowColor = 'transparent'; // Сброс
+          }
+        }
+      }
+
+      // 4. Подсветка последнего хода
+      if (history.length > 0) {
+        const last = history[history.length - 1];
+        const lx = (last.c + 1) * cellSize;
+        const ly = (last.r + 1) * cellSize;
+        ctx.fillStyle = last.color === BLACK ? '#FF5252' : '#0077FF';
+        ctx.beginPath();
+        ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 5. Подсветка фолов
+      if (document.getElementById('foul-checkbox').checked && turn === BLACK && !gameOver) {
+        ctx.strokeStyle = '#E64646';
+        ctx.lineWidth = 2;
+        const fSize = cellSize * 0.25;
+        for (let f of foulHighlights) {
+          const fx = (f.c + 1) * cellSize;
+          const fy = (f.r + 1) * cellSize;
+          ctx.beginPath();
+          ctx.moveTo(fx - fSize, fy - fSize); ctx.lineTo(fx + fSize, fy + fSize);
+          ctx.moveTo(fx + fSize, fy - fSize); ctx.lineTo(fx - fSize, fy + fSize);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Клики по доске
+    canvas.addEventListener('click', (e) => {
+      if (turn !== BLACK || gameOver) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const cellSize = rect.width / (BOARD_SIZE + 1);
+
+      const c = Math.round(x / cellSize) - 1;
+      const r = Math.round(y / cellSize) - 1;
+
+      if (isInside(r, c)) {
+        makeMove(r, c);
+      }
+    });
+
+    /* ==========================================
+       8. ИНТЕРФЕЙС И КНОПКИ
+       ========================================== */
+    function updateUI() {
+      document.getElementById('card-black').classList.toggle('active', turn === BLACK);
+      document.getElementById('card-white').classList.toggle('active', turn === WHITE);
+    }
+
+    document.getElementById('restart-btn').addEventListener('click', initGame);
+    document.getElementById('undo-btn').addEventListener('click', undoMove);
+    document.getElementById('foul-checkbox').addEventListener('change', () => {
+      recalculateFouls();
+      renderBoard();
+    });
+
+    // VK Share
+    document.getElementById('share-btn').addEventListener('click', () => {
+      try {
+        if (window.vkBridge) {
+          vkBridge.send('VKWebAppShowWallPostBox', {
+            message: 'Играю в «Классическое Рэндзю» с искусственным интеллектом ВКонтакте! Попробуй победить Мастера!'
+          });
+        } else {
+          alert('Функция поделиться доступна при запуске внутри ВКонтакте.');
+        }
+      } catch(e) { console.log(e); }
+    });
+
+    function showModal(title, desc) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-desc').textContent = desc;
+      document.getElementById('game-modal').classList.add('show');
+    }
+
+    function closeModal() {
+      document.getElementById('game-modal').classList.remove('show');
+    }
+
+    // Старт
+    setTimeout(() => {
+      resizeCanvas();
+      initGame();
+    }, 100);
+  </script>
+</body>
+</html>
